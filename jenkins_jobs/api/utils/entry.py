@@ -14,26 +14,49 @@ from settings import conf
 
 logger = logging.getLogger(__name__)
 
-class JenkinsEntry():
-    def __init__(self):
-        pass
+class JenkinsEntry(JenkinsManager):
+    def __init__(self, url=conf.JENKINS_URL,user=conf.JENKINS_USER,password=conf.JENKINS_PASSWORD):
+        self.jjb_config = JJBAPIConfig(url=url, user=user, password=password)
+        super().__init__(self.jjb_config)
 
-    @staticmethod
-    def get_instance():
-        jjb_config = JJBAPIConfig(url=conf.JENKINS_URL,user=conf.JENKINS_USER,password=conf.JENKINS_PASSWORD)
-        return JenkinsManager(jjb_config)
+    def get_instance(self):
+        return JenkinsManager(self.jjb_config)
+
+    def job_info(self, job_name):
+        if self.is_job(job_name):
+            return self.jenkins.get_job_info(job_name)
+        logger.warning("Job {0} is not exists".format(job_name))
+        return None
+
+    def next_bn(self, job_name):
+        job_info = self.job_info(job_name)
+        if job_info:
+            return job_info.get('nextBuildNumber')
+        return None
+
+    def build_job(self, job_name, parameter=None):
+        next_bn = self.next_bn(job_name)
+        if self.is_job(job_name):
+            self.run_job(job_name, parameter)
+
+        return (job_name, next_bn)
+
+    def run_job(self, job_name, parameter):
+        return self.jenkins.build_job(job_name, parameter)
+
+    def console_output(self, job_name, build_num):
+        return self.jenkins.get_build_console_output(job_name, build_num)
 
     def _generate_xmljobs(self, path, name=None):
-        jjb_config = JJBAPIConfig(url=conf.JENKINS_URL,user=conf.JENKINS_USER,password=conf.JENKINS_PASSWORD)
-        builder = JenkinsManager(jjb_config)
+        builder = JenkinsManager(self.jjb_config)
 
         logger.info("Updating jobs in {0} ({1})".format(
             path, name))
         orig = time.time()
 
         # Generate XML
-        parser = YamlParser(jjb_config)
-        registry = ModuleRegistry(jjb_config, builder.plugins_list)
+        parser = YamlParser(self.jjb_config)
+        registry = ModuleRegistry(self.jjb_config, builder.plugins_list)
         xml_job_generator = XmlJobGenerator(registry)
         xml_view_generator = XmlViewGenerator(registry)
 

@@ -17,7 +17,7 @@ class JJBEntryHandler(tornado.web.RequestHandler):
     @tornado.web.asynchronous
     def get(self):
         try:
-            self.write(gmsg(0, "数据获取成功", result=list(j['name'] for j in JenkinsEntry.get_instance().get_jobs())))
+            self.write(gmsg(0, "数据获取成功", result=list(j['name'] for j in JenkinsEntry().get_instance().get_jobs())))
         except Exception as e:
             logger.error(e)
             self.write(gmsg(1, "数据获取失败"))
@@ -32,9 +32,8 @@ class JJBEntryHandler(tornado.web.RequestHandler):
                 self.write(gmsg(-1, "参数错误"))
                 return
 
-            JenkinsEntry.get_instance().delete_job(name=jobname)
-
-            self.write(get_gmsg_from_result(result, okmessage="操作成功"))
+            JenkinsEntry().get_instance().delete_job(name=jobname)
+            self.write(gmsg(0, "操作成功"))
         except Exception as e:
             logger.error(e)
             self.write(gmsg(1, "操作失败"))
@@ -55,6 +54,39 @@ class JJBEntryHandler(tornado.web.RequestHandler):
 
             jenkins_entry = JenkinsEntry()
             jenkins_entry.update_jobs(path, type)
+            self.write(gmsg(0, "操作成功"))
+        except Exception as e:
+            logger.error(e)
+            self.write(gmsg(1, "操作失败"))
+        finally:
+            self.finish()
+
+class JJBActionEntryHandler(tornado.web.RequestHandler):
+    @tornado.web.asynchronous
+    def post(self):
+        try:
+            param = self.request.body.decode('utf-8')
+            data = json.loads(param)
+            if not data.get("action"):
+                self.write(gmsg(-1, "参数错误"))
+                return
+
+            action = data.get("action")
+            if action == "run":
+                jobname = data.get("name")
+                jobparam = data.get("params")
+                jenkins_entry = JenkinsEntry()
+                (jobname, buildnum) = jenkins_entry.build_job(jobname, jobparam)
+                self.write(gmsg(0, "操作成功", result=dict(jobname=jobname, buildnum=buildnum)))
+                return
+
+            elif action == "log":
+                jobname = data.get("jobname")
+                buildnum = data.get("buildnum")
+                jenkins_entry = JenkinsEntry()
+                self.write(gmsg(0, "操作成功", result=jenkins_entry.console_output(jobname, buildnum)))
+                return
+
             self.write(gmsg(0, "操作成功"))
         except Exception as e:
             logger.error(e)

@@ -16,6 +16,7 @@ def main():
         (r"/api/jjb/jobs/update", JJBEntryHandler),
         (r"/api/jjb/jobs/list", JJBEntryHandler),
         (r"/api/jjb/jobs/delete", JJBEntryHandler),
+        (r"/api/jjb/jobs/action", JJBActionEntryHandler),
     ], autoreload=True)
     print("server is listen on %s"%(options.port))
     http_server = tornado.httpserver.HTTPServer(application)
